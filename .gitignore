@@ -1,0 +1,9 @@
+# Raw DFL data and caches are never committed (see README, Data availability)
+data/
+*.xml
+*.zip
+*.pkl
+.env
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
