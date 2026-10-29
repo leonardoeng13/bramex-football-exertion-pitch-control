@@ -15,7 +15,17 @@
 
 Team project for **MITxT 2.980x Sports Analytics**. We study what physical exertion, positioning and team behaviour are associated with in professional football, using 25 Hz tracking and event data from six matches, and turn that into predictions evaluated on an unseen game.
 
-> **Status:** work in progress. Methods and results will be published here after team review.
+<p align="center">
+  <a href="https://colab.research.google.com/github/leonardoeng13/bramex-football-exertion-pitch-control/blob/main/notebooks/BraMex_team_notebook.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab"></a>
+</p>
+
+| | |
+|---|---|
+| Team notebook | [notebooks/BraMex_team_notebook.ipynb](notebooks/BraMex_team_notebook.ipynb) |
+| Project plan, schedule and decision log | [BraMex Team plan (GitHub Project)](https://github.com/users/leonardoeng13/projects/9) |
+| Shared pipeline | [src/bramex](src/bramex) |
+
+> **Status:** work in progress. Shared pipeline (Parts 1 to 4) and Workstream A are in the notebook; Workstreams B and C, integration and prediction are in progress.
 
 ## Questions
 
