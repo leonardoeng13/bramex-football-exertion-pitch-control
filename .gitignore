@@ -7,3 +7,10 @@ data/
 __pycache__/
 .ipynb_checkpoints/
 .DS_Store
+cache/
+models/
+*.parquet
+predictions_*.csv
+*.egg-info/
+build/
+.venv/

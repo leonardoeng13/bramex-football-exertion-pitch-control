@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/raw%20data-not%20included-lightgrey" alt="raw data not included">
 </p>
 
-# BraMex · What does physical exertion buy in a football match?
+# BraMex: what does physical exertion buy in a football match?
 
 Team project for **MITxT 2.980x Sports Analytics**. We study what physical exertion, positioning and team behaviour are associated with in professional football, using 25 Hz tracking and event data from six matches, and turn that into predictions evaluated on an unseen game.
 
@@ -21,9 +21,47 @@ Team project for **MITxT 2.980x Sports Analytics**. We study what physical exert
 
 | Workstream | Owner | Focus |
 |---|---|---|
-| A · Players and physical load | Leonardo De Andrade | Is individual exertion linked to pitch control? Do load metrics agree? Is fatigue visible? |
-| B · Teams: possession, progression, defense | Monica D. Morales-Hernandez | Possession vs pitch control, ball progression, where teams win the ball back |
-| C · Chances and possession changes | Pablo Saraiva | What precedes shots and turnovers, and can they be predicted seconds ahead? |
+| A. Players and physical load | Leonardo De Andrade | Is individual exertion linked to pitch control? Do load metrics agree? Is fatigue visible? |
+| B. Team possession, progression and defense | Monica D. Morales-Hernandez | Possession vs pitch control, ball progression, where teams win the ball back |
+| C. Chances and possession changes | Pablo Saraiva | What precedes shots and turnovers, and can they be predicted seconds ahead? |
+
+## Repository structure
+
+| Path | Content |
+|---|---|
+| `src/bramex/` | Shared pipeline used by every workstream: configuration, data loading, standard tables, data checks, feature registry |
+| `notebooks/BraMex_team_notebook.ipynb` | Team notebook: setup, shared tables, three workstreams, integration, prediction, holdout inference |
+| `pyproject.toml` | Package definition and dependencies |
+
+## Getting started
+
+The DFL files are not in this repository (see Data availability). Each member uses their own copy of the course data.
+
+**Local (Anaconda or venv, Python 3.10+)**
+```bash
+git clone https://github.com/leonardoeng13/bramex-football-exertion-pitch-control.git
+cd bramex-football-exertion-pitch-control
+conda create -n bramex python=3.12 -y && conda activate bramex   # or python -m venv .venv
+pip install -e .
+python -m ipykernel install --user --name bramex --display-name "Python (bramex)"
+```
+Set the data folder, then open `notebooks/BraMex_team_notebook.ipynb` with the `Python (bramex)` kernel:
+```bash
+export BRAMEX_DATA_DIR="/path/to/folder/with/DFL/xml"        # macOS / Linux
+setx BRAMEX_DATA_DIR "E:\path\to\folder\with\DFL\xml"         # Windows (open a new terminal afterwards)
+```
+
+**Google Colab**
+1. Copy the DFL XML files to `MyDrive/BraMex/data` in Google Drive.
+2. Open the notebook in Colab: *File → Open notebook → GitHub*, paste the repository URL.
+3. Run Part 1. It installs the package from GitHub and mounts Google Drive.
+
+**Other hosted notebooks (Kaggle, Deepnote, SageMaker)**
+Upload the XML files, run `pip install git+https://github.com/leonardoeng13/bramex-football-exertion-pitch-control.git`, and set `DATA` in cell 1.2 to the folder with the files.
+
+**Cache.** Part 3 builds the shared tables once per match, then reads them from the cache (`BRAMEX_CACHE_DIR`, default `<data>/cache`). The cache folder name includes a hash of the decision-log parameters, so changing a parameter rebuilds the tables instead of mixing versions. Sharing the cache folder between members avoids rebuilding it.
+
+**Working rules.** Shared code changes in `src/bramex` go through the PM. Workstream code stays in its own part of the notebook. Clear all outputs before committing.
 
 ## Data availability
 
