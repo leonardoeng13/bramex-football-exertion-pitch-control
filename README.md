@@ -77,6 +77,31 @@ Upload the XML files, run `pip install git+https://github.com/leonardoeng13/bram
 
 Raw tracking and event data are **not included** in this repository. They were provided to participants of MITxT 2.980x Sports Analytics (MIT) and originate from DFL Deutsche Fußball Liga, published by Bassek, Rein, Weber and Memmert (2025), *An integrated dataset of spatiotemporal and event data in elite soccer*, Scientific Data 12, 195. Course materials remain the property of MIT. To reproduce the analysis, obtain the data from its original source and set `BRAMEX_DATA_DIR` (see `.env.example`).
 
+## Local setup
+
+Create an isolated environment, install the declared dependencies and copy `.env.example` to `.env`. Set `BRAMEX_DATA_DIR` to the folder containing the DFL XML files. The local `.env`, raw XML files and generated caches are ignored by Git.
+
+```powershell
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
+Run the structural audit before analysis. It validates all six three-file match bundles, frame rate, pitch dimensions, event alignment and active-play possession switches. It also creates a compact local cache for Workstream C.
+
+```powershell
+.\.venv\Scripts\python.exe scripts\audit_dfl_data.py
+.\.venv\Scripts\python.exe scripts\build_workstream_c_baseline.py
+.\.venv\Scripts\python.exe scripts\fit_workstream_c_initial_model.py
+```
+
+Run the synthetic target-construction tests with:
+
+```powershell
+$env:PYTHONPATH = "src"
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
 ## Team BraMex
 
 | | Role |
