@@ -39,7 +39,7 @@ Team project for **MITxT 2.980x Sports Analytics**. We study what physical exert
 
 | Path | Content |
 |---|---|
-| `src/bramex/` | Shared pipeline used by every workstream: configuration, data loading, standard tables, data checks, feature registry |
+| `src/bramex/` | Shared pipeline plus Workstream C target construction, past-only features and match-level validation |
 | `notebooks/BraMex_team_notebook.ipynb` | Team notebook: setup, shared tables, three workstreams, integration, prediction, holdout inference |
 | `pyproject.toml` | Package definition and dependencies |
 
@@ -87,13 +87,15 @@ py -3.13 -m venv .venv
 Copy-Item .env.example .env
 ```
 
-Run the structural audit before analysis. It validates all six three-file match bundles, frame rate, pitch dimensions, event alignment and active-play possession switches. It also creates a compact local cache for Workstream C.
+Run the shared audit before analysis. It builds or reads the common tables, runs the team checks and adds the Workstream C active-play possession audit.
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\audit_dfl_data.py
 .\.venv\Scripts\python.exe scripts\build_workstream_c_baseline.py
 .\.venv\Scripts\python.exe scripts\fit_workstream_c_initial_model.py
 ```
+
+Workstream C counts the target from the original 25 Hz possession flags and attaches current and past-only predictors from the shared 5 Hz tables. Its outputs are stored below the parameter-specific shared cache in `workstream_c/`.
 
 Run the synthetic target-construction tests with:
 

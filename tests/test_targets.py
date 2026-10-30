@@ -34,6 +34,14 @@ class PossessionSwitchTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             possession_switch_mask(np.array([1, 2]), np.array([1]))
 
+    def test_unknown_possession_codes_are_not_counted_as_switches(self):
+        possession = np.array([1, 0, 2, 1])
+        ball_status = np.ones(4, dtype=int)
+        expected = np.array([False, False, False, True])
+        np.testing.assert_array_equal(
+            possession_switch_mask(possession, ball_status), expected
+        )
+
     def test_dead_ball_origins_are_excluded_by_default(self):
         possession = np.array([1, 1, 2, 2, 1])
         ball_status = np.array([1, 0, 1, 1, 1])

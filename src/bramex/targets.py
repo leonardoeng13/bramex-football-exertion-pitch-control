@@ -27,8 +27,11 @@ def possession_switch_mask(
     switches = np.zeros(possession.shape[0], dtype=bool)
     if switches.size < 2:
         return switches
+    valid_home_away = np.isin(possession, (1, 2))
     switches[1:] = (
         (possession[1:] != possession[:-1])
+        & valid_home_away[1:]
+        & valid_home_away[:-1]
         & (ball_status[1:] == alive_code)
         & (ball_status[:-1] == alive_code)
     )

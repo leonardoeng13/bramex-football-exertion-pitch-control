@@ -45,26 +45,26 @@ These horizons test the pipeline; they do not select the final course horizon.
 | 60 s | 3.723 | 6.2% | 2.030 |
 | 300 s | 17.156 | 0.0% | 4.931 |
 
-## First model check
+## Shared-pipeline model check
 
-The first leakage-safe models use current possession, ball location, past-only ball displacement/speed, recent switch counts, recent live-ball share and time within the half. Hyperparameters were fixed before leave-one-match-out evaluation.
+Targets are counted from the original 25 Hz possession flags. Predictors are aligned to the team's shared 5 Hz tables and include current and past-only ball position, Voronoi control, ball-zone control, HSR, distance, possession duration, recent switches, live-ball share and recent events. Hyperparameters were fixed before leave-one-match-out evaluation.
 
 | Candidate horizon | Historical mean | Poisson | Gradient boosting |
 |---:|---:|---:|---:|
-| 30 s | **1.427** | 1.441 | 1.447 |
-| 60 s | **2.030** | 2.036 | 2.115 |
-| 300 s | **4.931** | 5.053 | 5.517 |
+| 30 s | **1.427** | 1.429 | 1.446 |
+| 60 s | 2.030 | **2.021** | 2.070 |
+| 300 s | **4.931** | 5.233 | 5.598 |
 
-The simple feature set does not beat the historical-mean baseline. Therefore, there is currently no evidence for a predictive improvement. This is a useful negative control, not a final rejection of the workstream hypothesis: the shared pitch-control, pressure, player-load and game-state features are not yet included.
+At 60 seconds, Poisson improves mean MAE by 0.009 and beats the baseline in four of six held-out matches. The paired match-bootstrap interval for model-minus-baseline MAE is -0.028 to 0.015, so the result does not establish a reliable predictive improvement. The 30-second result is effectively tied and both 300-second models are worse. This remains a useful negative control rather than a final rejection of the hypothesis.
 
 ## Decisions required from the team
 
 1. Official forecast horizon and forecast cadence.
 2. Final submission schema and whether forecasts are required during dead-ball periods.
-3. Shared definition and implementation of pitch control.
-4. Shared player-load and pressure features available at each forecast origin.
+3. Team approval of the shared Voronoi definition and whether time-to-arrival control is required.
+4. Monica's Workstream B pressure, progression and possession features available at each forecast origin.
 5. Whether shot/foul stretch targets remain in scope before the required targets beat baseline.
 
 ## Next analysis step
 
-After the shared pipeline is approved, add pitch-control change, local control near the ball, team compactness/pressure, possession duration, score state and player-load summaries. Re-run the same frozen outer validation and retain the historical-mean result as the required baseline.
+After Workstream B is available, add pressure, progression, team compactness and score/game-state features. Re-run the same frozen outer validation, retain the historical-mean baseline and do not select a final model until the course horizon and submission schema are confirmed.
