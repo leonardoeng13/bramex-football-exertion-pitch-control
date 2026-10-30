@@ -34,6 +34,18 @@ from .targets import possession_switch_mask
 DEFAULT_HORIZONS_SECONDS = (30, 60, 300)
 DEFAULT_STRIDE_SECONDS = 5
 RANDOM_SEED = 42
+WORKSTREAM_B_FEATURE_COLUMNS = (
+    "B_current_pitch_share",
+    "B_current_zone_share",
+    *(f"B_{name}_{seconds}s" for seconds in (60, 300) for name in (
+        "possession_share",
+        "pitch_share",
+        "zone_share",
+        "control_minus_possession",
+        "progression_m",
+        "seq_start_zone",
+    )),
+)
 
 
 def _past_sum(values: np.ndarray, origins: np.ndarray, window: int) -> np.ndarray:
@@ -86,6 +98,135 @@ def _event_arrays(events: pd.DataFrame, half: str, n_samples: int) -> dict[str, 
     return arrays
 
 
+def _workstream_b_origin_features(
+    table: pd.DataFrame,
+    origins: np.ndarray,
+    current_home: np.ndarray,
+) -> pd.DataFrame:
+    """Translate Monica's Workstream B signals to past-only forecast origins.
+
+    Monica's analysis establishes possession share, pitch control, ball-zone
+    control, progression and control at possession starts as the relevant team
+    context. Her published integration table is team-by-minute and includes the
+    complete current minute. Workstream C predicts every five seconds, so using
+    that row directly would expose seconds after most forecast origins. This
+    function recomputes the same concepts at 5 Hz using only samples at or
+    before each origin.
+
+    Values are expressed from the perspective of the side in possession at the
+    forecast origin. TTI control is used when the shared cache contains it;
+    otherwise the agreed Voronoi alternative is used.
+    """
+    origins = np.asarray(origins, dtype=int)
+    current_home = np.asarray(current_home, dtype=bool)
+    if origins.shape != current_home.shape:
+        raise ValueError("origins and current_home must have the same shape")
+
+    control_name = "home_tti" if "home_tti" in table else "home_voronoi"
+    zone_name = "home_tti_ball" if "home_tti_ball" in table else "home_voronoi_ball"
+    home_control = table[control_name].to_numpy(dtype=float)
+    home_zone = table[zone_name].to_numpy(dtype=float)
+    possession = table["poss_side"].astype(str).to_numpy()
+    inplay = table["inplay"].to_numpy(dtype=bool)
+    valid = inplay & np.isin(possession, ("Home", "Away"))
+
+    feature = pd.DataFrame(index=np.arange(len(origins)))
+    feature["B_current_pitch_share"] = np.where(
+        current_home, home_control[origins], 1 - home_control[origins]
+    )
+    feature["B_current_zone_share"] = np.where(
+        current_home, home_zone[origins], 1 - home_zone[origins]
+    )
+
+    ball_x = table["ball_x"].to_numpy(dtype=float)
+    home_dir = table["home_dir"].to_numpy(dtype=float)
+    same_possession = np.zeros(len(table), dtype=bool)
+    same_possession[1:] = (
+        valid[1:]
+        & valid[:-1]
+        & (possession[1:] == possession[:-1])
+        & np.isfinite(ball_x[1:])
+        & np.isfinite(ball_x[:-1])
+    )
+    ball_dx = np.zeros(len(table), dtype=float)
+    ball_dx[1:] = ball_x[1:] - ball_x[:-1]
+    home_progress = np.where(
+        same_possession & (possession == "Home"), ball_dx * home_dir, 0.0
+    )
+    away_progress = np.where(
+        same_possession & (possession == "Away"), -ball_dx * home_dir, 0.0
+    )
+
+    sequence_start = valid.copy()
+    sequence_start[1:] &= (~valid[:-1]) | (possession[1:] != possession[:-1])
+    home_start = sequence_start & (possession == "Home") & np.isfinite(home_zone)
+    away_start = sequence_start & (possession == "Away") & np.isfinite(home_zone)
+
+    for seconds in (60, 300):
+        window = int(round(seconds * CONFIG["SAMPLE_HZ"]))
+        live_count = _past_sum(valid.astype(float), origins, window)
+        home_possession_count = _past_sum(
+            (valid & (possession == "Home")).astype(float), origins, window
+        )
+        home_possession_share = np.divide(
+            home_possession_count,
+            live_count,
+            out=np.full(len(origins), np.nan),
+            where=live_count > 0,
+        )
+
+        control_valid = valid & np.isfinite(home_control)
+        control_count = _past_sum(control_valid.astype(float), origins, window)
+        home_pitch_share = np.divide(
+            _past_sum(np.where(control_valid, home_control, 0.0), origins, window),
+            control_count,
+            out=np.full(len(origins), np.nan),
+            where=control_count > 0,
+        )
+        zone_valid = valid & np.isfinite(home_zone)
+        zone_count = _past_sum(zone_valid.astype(float), origins, window)
+        home_zone_share = np.divide(
+            _past_sum(np.where(zone_valid, home_zone, 0.0), origins, window),
+            zone_count,
+            out=np.full(len(origins), np.nan),
+            where=zone_count > 0,
+        )
+
+        poss_share = np.where(
+            current_home, home_possession_share, 1 - home_possession_share
+        )
+        pitch_share = np.where(current_home, home_pitch_share, 1 - home_pitch_share)
+        zone_share = np.where(current_home, home_zone_share, 1 - home_zone_share)
+        feature[f"B_possession_share_{seconds}s"] = poss_share
+        feature[f"B_pitch_share_{seconds}s"] = pitch_share
+        feature[f"B_zone_share_{seconds}s"] = zone_share
+        feature[f"B_control_minus_possession_{seconds}s"] = pitch_share - poss_share
+        feature[f"B_progression_m_{seconds}s"] = np.where(
+            current_home,
+            _past_sum(home_progress, origins, window),
+            _past_sum(away_progress, origins, window),
+        )
+
+        home_start_count = _past_sum(home_start.astype(float), origins, window)
+        away_start_count = _past_sum(away_start.astype(float), origins, window)
+        home_start_zone = np.divide(
+            _past_sum(np.where(home_start, home_zone, 0.0), origins, window),
+            home_start_count,
+            out=np.full(len(origins), np.nan),
+            where=home_start_count > 0,
+        )
+        away_start_zone = np.divide(
+            _past_sum(np.where(away_start, 1 - home_zone, 0.0), origins, window),
+            away_start_count,
+            out=np.full(len(origins), np.nan),
+            where=away_start_count > 0,
+        )
+        feature[f"B_seq_start_zone_{seconds}s"] = np.where(
+            current_home, home_start_zone, away_start_zone
+        )
+    return feature
+
+
 def _shared_features(
     half_table: pd.DataFrame,
     half_events: pd.DataFrame,
@@ -113,6 +254,13 @@ def _shared_features(
     feature["fraction_into_half"] = raw_origins / max(len(possession) - 1, 1)
     duration = _possession_duration_frames(possession, ball_status)
     feature["possession_duration_s"] = duration[raw_origins] / framerate
+
+    b_features = _workstream_b_origin_features(
+        table,
+        origins,
+        current_home=possession[raw_origins] == 1,
+    )
+    feature = pd.concat([feature, b_features], axis=1)
 
     shared_columns = ["home_voronoi", "home_voronoi_ball"]
     for optional in ("home_tti", "home_tti_ball"):
@@ -243,6 +391,11 @@ def feature_columns(forecast_table: pd.DataFrame) -> list[str]:
     return [column for column in forecast_table.columns if column not in excluded]
 
 
+def has_workstream_b_features(forecast_table: pd.DataFrame) -> bool:
+    """Return whether a cached forecast table has the complete B integration."""
+    return set(WORKSTREAM_B_FEATURE_COLUMNS).issubset(forecast_table.columns)
+
+
 def evaluate_baseline(forecast_table: pd.DataFrame) -> pd.DataFrame:
     """Evaluate the historical training mean on each complete held-out match."""
     rows: list[dict] = []
@@ -263,9 +416,16 @@ def evaluate_baseline(forecast_table: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def evaluate_models(forecast_table: pd.DataFrame) -> pd.DataFrame:
+def evaluate_models(
+    forecast_table: pd.DataFrame,
+    predictor_columns: Iterable[str] | None = None,
+) -> pd.DataFrame:
     """Evaluate fixed baseline, Poisson and boosting models on complete held-out matches."""
-    columns = feature_columns(forecast_table)
+    columns = list(
+        feature_columns(forecast_table)
+        if predictor_columns is None
+        else predictor_columns
+    )
     factories = {
         "poisson": lambda: make_pipeline(
             SimpleImputer(strategy="median"),
@@ -305,6 +465,21 @@ def evaluate_models(forecast_table: pd.DataFrame) -> pd.DataFrame:
                     }
                 )
     return pd.DataFrame(rows)
+
+
+def evaluate_feature_ablation(forecast_table: pd.DataFrame) -> pd.DataFrame:
+    """Compare the original C predictors with the leakage-safe B integration."""
+    all_columns = feature_columns(forecast_table)
+    feature_sets = {
+        "C_only": [column for column in all_columns if not column.startswith("B_")],
+        "C_plus_B": all_columns,
+    }
+    frames = []
+    for name, columns in feature_sets.items():
+        scores = evaluate_models(forecast_table, predictor_columns=columns)
+        scores.insert(0, "feature_set", name)
+        frames.append(scores)
+    return pd.concat(frames, ignore_index=True)
 
 
 def summarize_scores(scores: pd.DataFrame) -> pd.DataFrame:

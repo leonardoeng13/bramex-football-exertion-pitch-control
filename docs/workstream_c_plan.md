@@ -45,26 +45,28 @@ These horizons test the pipeline; they do not select the final course horizon.
 | 60 s | 3.723 | 6.2% | 2.030 |
 | 300 s | 17.156 | 0.0% | 4.931 |
 
-## Shared-pipeline model check
+## Shared-pipeline model check and Workstream B integration
 
 Targets are counted from the original 25 Hz possession flags. Predictors are aligned to the team's shared 5 Hz tables and include current and past-only ball position, Voronoi control, ball-zone control, HSR, distance, possession duration, recent switches, live-ball share and recent events. Hyperparameters were fixed before leave-one-match-out evaluation.
 
-| Candidate horizon | Historical mean | Poisson | Gradient boosting |
-|---:|---:|---:|---:|
-| 30 s | **1.427** | 1.429 | 1.446 |
-| 60 s | 2.030 | **2.021** | 2.070 |
-| 300 s | **4.931** | 5.233 | 5.598 |
+Monica's Workstream B notebook identifies possession share, pitch share, ball-zone control, progression and control at the start of a possession as the main team-context signals. Its published integration rows summarize the complete current minute, which is not safe for a forecast made inside that minute. Workstream C therefore recomputes those concepts at each 5-second origin using only the origin and earlier samples. The local shared cache contains the agreed Voronoi alternative; the implementation automatically uses TTI when those columns are available.
 
-At 60 seconds, Poisson improves mean MAE by 0.009 and beats the baseline in four of six held-out matches. The paired match-bootstrap interval for model-minus-baseline MAE is -0.028 to 0.015, so the result does not establish a reliable predictive improvement. The 30-second result is effectively tied and both 300-second models are worse. This remains a useful negative control rather than a final rejection of the hypothesis.
+| Horizon | Historical mean | C-only Poisson | C+B Poisson | C-only HGB | C+B HGB |
+|---:|---:|---:|---:|---:|---:|
+| 30 s | 1.427 | 1.431 | **1.427** | 1.454 | 1.448 |
+| 60 s | 2.030 | **2.021** | 2.033 | 2.050 | 2.081 |
+| 300 s | **4.931** | 5.237 | 5.287 | 5.548 | 5.605 |
+
+At 60 seconds, the C-only Poisson model improves mean MAE by 0.009 and beats the baseline in four of six held-out matches. The paired match-bootstrap interval for model-minus-baseline MAE is -0.028 to 0.015, so the result does not establish a reliable predictive improvement. Adding the leakage-safe B signals changes the 60-second Poisson delta to +0.002 (95% match-bootstrap interval -0.016 to 0.023; three of six wins): useful team context, but no incremental forecasting gain. At 30 seconds C+B is effectively tied with the baseline, while both feature sets are worse at 300 seconds. No model is frozen from these provisional horizons.
 
 ## Decisions required from the team
 
 1. Official forecast horizon and forecast cadence.
 2. Final submission schema and whether forecasts are required during dead-ball periods.
 3. Team approval of the shared Voronoi definition and whether time-to-arrival control is required.
-4. Monica's Workstream B pressure, progression and possession features available at each forecast origin.
-5. Whether shot/foul stretch targets remain in scope before the required targets beat baseline.
+4. Whether the team will share/build the TTI cache for a final sensitivity run; the current C integration uses the Voronoi alternative.
+5. Whether to retain the B variables as context despite no incremental MAE gain, and whether shot/foul stretch targets remain in scope.
 
 ## Next analysis step
 
-After Workstream B is available, add pressure, progression, team compactness and score/game-state features. Re-run the same frozen outer validation, retain the historical-mean baseline and do not select a final model until the course horizon and submission schema are confirmed.
+The Workstream B ablation and the frozen outer validation are complete. Do not open the holdout or select a final model until the team confirms the official horizon, forecast cadence, submission schema and pitch-control definition. If a shared TTI cache becomes available, repeat the same locked ablation without changing models or thresholds.

@@ -25,7 +25,7 @@ Team project for **MITxT 2.980x Sports Analytics**. We study what physical exert
 | Project plan, schedule and decision log | [BraMex Team plan (GitHub Project)](https://github.com/users/leonardoeng13/projects/9) |
 | Shared pipeline | [src/bramex](src/bramex) |
 
-> **Status:** work in progress. Shared pipeline (Parts 1 to 4) and Workstream A are in the notebook; Workstreams B and C, integration and prediction are in progress.
+> **Status:** work in progress. Shared pipeline, Workstreams A-C and the leakage-safe B-to-C forecast ablation are complete on six training matches. Team decisions, final notebook integration and holdout inference remain pending.
 
 ## Questions
 
@@ -41,6 +41,7 @@ Team project for **MITxT 2.980x Sports Analytics**. We study what physical exert
 |---|---|
 | `src/bramex/` | Shared pipeline plus Workstream C target construction, past-only features and match-level validation |
 | `notebooks/BraMex_team_notebook.ipynb` | Team notebook: setup, shared tables, three workstreams, integration, prediction, holdout inference |
+| `notebooks/BraMex_WorkstreamB_Monicav5october30.ipynb` | Monica's executed Workstream B analysis, robustness checks and team-minute features |
 | `pyproject.toml` | Package definition and dependencies |
 
 ## Getting started
@@ -95,7 +96,7 @@ Run the shared audit before analysis. It builds or reads the common tables, runs
 .\.venv\Scripts\python.exe scripts\fit_workstream_c_initial_model.py
 ```
 
-Workstream C counts the target from the original 25 Hz possession flags and attaches current and past-only predictors from the shared 5 Hz tables. Its outputs are stored below the parameter-specific shared cache in `workstream_c/`.
+Workstream C counts the target from the original 25 Hz possession flags and attaches current and past-only predictors from the shared 5 Hz tables. It also translates Monica's possession, pitch-control, ball-zone, progression and possession-start signals to each forecast origin without using the unfinished current minute. Its outputs, including the C-only versus C+B ablation, are stored below the parameter-specific shared cache in `workstream_c/`.
 
 Run the synthetic target-construction tests with:
 
